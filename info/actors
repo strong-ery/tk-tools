@@ -1,0 +1,12 @@
+actor:
+
+if I were to flatten an actor, what would it actually be?
+
+RowID
+
+ModelProjectName
+FmbdName
+
+Mals stuff
+
+AI, ASB, Event Refs. They all should get their own schematic based approach I think.
