@@ -1,0 +1,37 @@
+{
+    "Attachment.msbt": {
+        "_Adjective": "The prefix of the fused name of this and some other actor.",
+        "_Name": "The normal name of the actor."
+    },
+    "AutoBuilderDraft.msbt": {
+        "_Name": "The name of the autobuild schematic."
+    },
+    "Boss.msbt": {
+        "_Name": "The name of the boss."
+    },
+    "CharaDirectory.msbt": {
+        "_Name": "The name of the NPC.",
+        "_Alias": "The NPC's meaning to you, the player (eg: 'Source of the Right Arm', or 'The Princess of Hyrule'.)",
+        "_Caption": "The description of the NPC.",
+        "_InstantTips": "The text that appears when the NPC's profile is added to the player's compendium."
+    },
+    "Horse.msbt": {
+        "_Name": "The name of the horse accessory (eg: a mane, or a bridle)."
+    },
+    "LinkHouse.msbt": {
+        "_Caption": "The description of the room piece.",
+        "_Name": "The name of the room piece."
+    },
+    "Npc.msbt": {
+        "_Name": "The name of the Speaker/NPC."
+    },
+    "PictureBook.msbt": {
+        "_Caption": "The caption of the picture book entry.",
+        "_Name": "The name of the actor being pictured (eg: 'Honeyvore Bear')."
+    },
+    "PouchContent.msbt": {
+        "_Caption": "The description of the item seen in the inventory.",
+        "_Name": "The name of the item seen in the inventory.",
+        "_BaseName": "The base name of the combat equipment type: swords, longswords, spears, or shields (bows are excluded for Nintendo reasons???)"
+    }
+}

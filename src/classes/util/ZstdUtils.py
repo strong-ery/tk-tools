@@ -1,29 +1,34 @@
-import oead
 import zstandard as zstd
 from pathlib import Path
+import oead
 
 
-class ZsDicts:
+class ZstdUtils:
+    _instance = None
+
     def __init__(self, zsdic_pack_zs_path: str):
-        raw = Path(zsdic_pack_zs_path).read_bytes()
-        sarc_bytes = zstd.ZstdDecompressor().decompress(raw)
-        sarc = oead.Sarc(sarc_bytes)
+        if ZstdUtils._instance is not None:
+            raise RuntimeError(
+                "ZstdUtils is already initialized — use ZstdUtils.instance() instead of creating a new one"
+            )
 
-        print("files in ZsDic.pack.zs:", [f.name for f in sarc.get_files()])
+        raw = Path(zsdic_pack_zs_path).read_bytes()
+        decompressed_data = zstd.ZstdDecompressor().decompress(raw)
+        sarc = oead.Sarc(decompressed_data)
+
+        zs_dict_file = oead.Sarc.get_file(sarc, "zs.zsdic")
+        pack_dict_file = oead.Sarc.get_file(sarc, "pack.zsdic")
+        bcett_dict_file = oead.Sarc.get_file(sarc, "bcett.byml.zsdic")
 
         zs_dict = zstd.ZstdCompressionDict(
-            bytes(sarc.get_file("zs.zsdic").data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(zs_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
         )
         pack_dict = zstd.ZstdCompressionDict(
-            bytes(sarc.get_file("pack.zsdic").data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(pack_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
         )
         bcett_dict = zstd.ZstdCompressionDict(
-            bytes(sarc.get_file("bcett.byml.zsdic").data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(bcett_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
         )
-
-        print("zs dict: id=%s size=%d" % (zs_dict.dict_id(), zs_dict.as_bytes().__len__()))
-        print("pack dict: id=%s size=%d" % (pack_dict.dict_id(), pack_dict.as_bytes().__len__()))
-        print("bcett dict: id=%s size=%d" % (bcett_dict.dict_id(), bcett_dict.as_bytes().__len__()))
 
         self._named = [
             ("pack", zstd.ZstdDecompressor(dict_data=pack_dict)),
@@ -31,6 +36,16 @@ class ZsDicts:
             ("zs", zstd.ZstdDecompressor(dict_data=zs_dict)),
             ("none", zstd.ZstdDecompressor()),
         ]
+
+        ZstdUtils._instance = self
+
+    @classmethod
+    def instance(cls) -> "ZstdUtils":
+        if cls._instance is None:
+            raise RuntimeError(
+                "ZstdUtils has not been initialized yet — call ZstdUtils(path) once at startup first"
+            )
+        return cls._instance
 
     def decompress(self, data: bytes, filename: str = "") -> bytes:
         try:

@@ -1,4 +1,4 @@
-from classes.game.RSDB.RSDB import RSDB
+from src.classes.game.RSDB.RSDB import RSDB
 
 class AttachmentActorInfo(RSDB):
     def __init__(self, RowID, AAIKeyValuePairs):
