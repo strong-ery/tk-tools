@@ -1,0 +1,5 @@
+{
+  "Items": "list",
+  "Price": "int",
+  "__RowId": "str"
+}

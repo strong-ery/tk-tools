@@ -1,0 +1,18 @@
+{
+  "AttachmentAdditionalDamage": "int",
+  "AttachmentAdditionalSubType": "str",
+  "AttachmentBindBoneLargeSword": "str",
+  "AttachmentBindBoneSpear": "str",
+  "AttachmentBindBoneSword": "str",
+  "AttachmentCommonName": "str",
+  "AttachmentIsOverrideAttribute": "bool",
+  "AttachmentMulValueArrow": "float",
+  "AttachmentShieldBashDamage": "int",
+  "ChemicalIsFlammable": "bool",
+  "ChemicalIsStruckableByThunder": "bool",
+  "DetachReplacementActorName": "str",
+  "PushToPouchSpecialParts": "str",
+  "SpecialPartsCreatePriority": "str",
+  "SpecialPartsCreateRot": "dict",
+  "__RowId": "str"
+}
