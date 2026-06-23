@@ -21,13 +21,13 @@ class ZstdUtils:
         bcett_dict_file = oead.Sarc.get_file(sarc, "bcett.byml.zsdic")
 
         zs_dict = zstd.ZstdCompressionDict(
-            bytes(zs_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(zs_dict_file.data), dict_type=zstd.DICT_TYPE_AUTO
         )
         pack_dict = zstd.ZstdCompressionDict(
-            bytes(pack_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(pack_dict_file.data), dict_type=zstd.DICT_TYPE_AUTO
         )
         bcett_dict = zstd.ZstdCompressionDict(
-            bytes(bcett_dict_file.data), dict_type=zstd.DICT_TYPE_RAWCONTENT
+            bytes(bcett_dict_file.data), dict_type=zstd.DICT_TYPE_AUTO
         )
 
         self._named = [
@@ -36,6 +36,10 @@ class ZstdUtils:
             ("zs", zstd.ZstdDecompressor(dict_data=zs_dict)),
             ("none", zstd.ZstdDecompressor()),
         ]
+
+        print("zs_dict id:", zs_dict.dict_id())
+        print("pack_dict id:", pack_dict.dict_id())
+        print("bcett_dict id:", bcett_dict.dict_id())
 
         ZstdUtils._instance = self
 

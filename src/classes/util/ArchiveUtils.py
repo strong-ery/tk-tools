@@ -13,3 +13,19 @@ class ArchiveUtils:
         if file is None:
             raise FileNotFoundError(f"File '{filename}' not found in archive")
         return bytes(file.data)
+    
+    @staticmethod
+    def GetAllFilesFromArchive(archive) -> dict[str, bytes]:
+        if isinstance(archive, (str, Path)):
+            archive = Path(archive).read_bytes()
+        decompressed = oead.Bytes(ZstdUtils.instance().decompress(archive))
+        sarc = oead.Sarc(decompressed)
+        return {file.name: bytes(file.data) for file in sarc.get_files()}
+    
+    @staticmethod
+    def GetArchiveContentsAsList(archive) -> list[str]:
+        if isinstance(archive, (str, Path)):
+            archive = Path(archive).read_bytes()
+        decompressed = oead.Bytes(ZstdUtils.instance().decompress(archive))
+        sarc = oead.Sarc(decompressed)
+        return [file.name for file in sarc.get_files()]

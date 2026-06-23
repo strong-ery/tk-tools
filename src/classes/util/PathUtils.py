@@ -1,3 +1,7 @@
+from src.config import Config
+from src.appglobals import appglobals
+from pathlib import Path
+
 class PathUtils:
     
     @staticmethod
@@ -18,3 +22,8 @@ class PathUtils:
         if PathUtils.IsUniversalRowID(RowID):
             return RowID
         return PathUtils.GetActorRowIDFromEngineRowID(RowID)
+    
+    @staticmethod
+    def IsInsideRomfsPath(path):
+        romfs_path = Path(Config.instance().get("romfs_path"))
+        return romfs_path in Path(path).parents
