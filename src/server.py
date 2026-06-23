@@ -1,0 +1,58 @@
+import sys
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+
+from appglobals import appglobals
+from config import Config
+from classes.util.ZstdUtils import ZstdUtils
+from classes.util.DefinitionUtils import SchemaRegistry
+from classes.game.Actor.ActorManager import ActorManager
+
+app = FastAPI(title="tk-tools Backend")
+
+# Allow all origins for local development (Electron)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+@app.on_event("startup")
+async def startup_event():
+    # Initialize the required singletons on startup
+    config = Config(appglobals.APPDATA_PATH / "config.json")
+    if not config.was_just_created:
+        try:
+            ZstdUtils(Path(config.get("romfs_path")) / "Pack" / "ZsDic.pack.zs")
+        except Exception as e:
+            print(f"Failed to load ZstdUtils: {e}")
+    SchemaRegistry.instance()
+
+@app.get("/api/actor/{row_id}")
+async def get_actor(row_id: str):
+    try:
+        actor = ActorManager.LoadActor(row_id)
+        
+        # Serialize Actor object to dict
+        components = []
+        for comp in actor.components:
+            components.append({
+                "name": comp.name,
+                "fields": comp.fields
+            })
+            
+        return {
+            "ID": actor.ID,
+            "category": actor.category,
+            "components": components
+        }
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="127.0.0.1", port=8123)

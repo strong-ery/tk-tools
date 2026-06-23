@@ -1,15 +1,15 @@
-from src.config import Config
-from src.appglobals import appglobals
+from config import Config
+from appglobals import appglobals
 from pathlib import Path
 
 class PathUtils:
     
     @staticmethod
-    def GetActorRowIDFromEngineRowID(self, EngineRowID: str) -> str:
+    def GetActorRowIDFromEngineRowID(EngineRowID: str) -> str:
         return EngineRowID.removeprefix("Work/Actor/").removesuffix(".engine__actor__ActorParam.gyml")
 
     @staticmethod
-    def GetEngineRowIDFromActorRowID(self, ActorRowID: str) -> str:
+    def GetEngineRowIDFromActorRowID(ActorRowID: str) -> str:
         result = "Work/Actor/" + ActorRowID + ".engine__actor__ActorParam.gyml"
         return result
     

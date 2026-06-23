@@ -32,7 +32,7 @@ class Config:
             self.was_just_created = False
 
         Config._instance = self
-
+        print(f"[DEBUG] Config initialized! Instance is set to {id(self)}")
     @classmethod
     def instance(cls) -> "Config":
         if cls._instance is None:

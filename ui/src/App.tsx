@@ -1,121 +1,184 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useEffect } from 'react'
 import './App.css'
 
+interface ComponentData {
+  name: string
+  fields: Record<string, any>
+}
+
+interface ActorData {
+  ID: string
+  category: string
+  components: ComponentData[]
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const [rowId, setRowId] = useState('Enemy_Bokoblin_Junior')
+  const [actor, setActor] = useState<ActorData | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [selectedComponent, setSelectedComponent] = useState<ComponentData | null>(null)
+
+  const fetchActor = async () => {
+    if (!rowId.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(`http://127.0.0.1:8123/api/actor/${rowId}`)
+      if (!res.ok) {
+        throw new Error(`Failed to load actor. Status: ${res.status}`)
+      }
+      const data: ActorData = await res.json()
+      setActor(data)
+      if (data.components && data.components.length > 0) {
+        setSelectedComponent(data.components[0])
+      } else {
+        setSelectedComponent(null)
+      }
+    } catch (err: any) {
+      if (err.message.includes('Failed to fetch')) {
+        setError('Failed to reach Python server. It might still be starting up. Please try again.')
+      } else {
+        setError(err.message || 'Unknown error')
+      }
+      setActor(null)
+      setSelectedComponent(null)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Initial load
+  useEffect(() => {
+    fetchActor()
+  }, [])
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      fetchActor()
+    }
+  }
+
+  const renderValue = (val: any, depth = 0): React.ReactNode => {
+    if (val === null || val === undefined) return <span className="value-null">null</span>
+    if (typeof val === 'boolean') return <span className="value-bool">{val ? 'true' : 'false'}</span>
+    if (typeof val === 'number') return <span className="value-num">{val}</span>
+    if (typeof val === 'string') return <span className="value-str">"{val}"</span>
+
+    if (Array.isArray(val)) {
+      if (val.length === 0) return <span className="value-empty">[]</span>
+      return (
+        <div className="nested-block" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
+          {val.map((item, idx) => (
+            <div key={idx} className="array-item">
+              <span className="array-index">[{idx}]</span> {renderValue(item, depth + 1)}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    if (typeof val === 'object') {
+      const keys = Object.keys(val)
+      if (keys.length === 0) return <span className="value-empty">{"{}"}</span>
+      return (
+        <div className="nested-block" style={{ paddingLeft: depth === 0 ? 0 : 16 }}>
+          {keys.map((k) => (
+            <div key={k} className="object-field">
+              <span className="object-key">{k}:</span> {renderValue(val[k], depth + 1)}
+            </div>
+          ))}
+        </div>
+      )
+    }
+
+    return String(val)
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="app-container">
+      {/* Header Toolbar */}
+      <header className="toolbar">
+        <div className="logo-area">
+          <h1>TK Tools</h1>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+        <div className="search-area">
+          <input
+            type="text"
+            placeholder="Enter Actor RowID (e.g. Enemy_Bokoblin_Junior)"
+            value={rowId}
+            onChange={(e) => setRowId(e.target.value)}
+            onKeyDown={handleKeyDown}
+          />
+          <button onClick={fetchActor} disabled={loading}>
+            {loading ? 'Loading...' : 'Load'}
+          </button>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </header>
 
-      <div className="ticks"></div>
+      {/* Main Content */}
+      <main className="main-content">
+        {error && (
+          <div className="error-banner">
+            <p>Error: {error}</p>
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {actor ? (
+          <div className="inspector-layout">
+            {/* Sidebar: Component List */}
+            <aside className="sidebar">
+              <div className="sidebar-header">
+                <h2>{actor.ID}</h2>
+                <span className="badge">{actor.category}</span>
+              </div>
+              <ul className="component-list">
+                {actor.components.map((comp) => (
+                  <li
+                    key={comp.name}
+                    className={selectedComponent?.name === comp.name ? 'active' : ''}
+                    onClick={() => setSelectedComponent(comp)}
+                  >
+                    {comp.name}
+                  </li>
+                ))}
+              </ul>
+            </aside>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+            {/* Inspector Details */}
+            <section className="inspector">
+              {selectedComponent ? (
+                <>
+                  <div className="inspector-title">
+                    <h3>{selectedComponent.name}</h3>
+                  </div>
+                  <div className="inspector-fields">
+                    {Object.keys(selectedComponent.fields).length === 0 ? (
+                      <p className="no-fields">No fields in this component.</p>
+                    ) : (
+                      Object.keys(selectedComponent.fields).map((k) => (
+                        <div className="field-row" key={k}>
+                          <div className="field-label">{k}</div>
+                          <div className="field-value">{renderValue(selectedComponent.fields[k])}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </>
+              ) : (
+                <div className="empty-state">Select a component to view properties</div>
+              )}
+            </section>
+          </div>
+        ) : (
+          !loading && !error && (
+            <div className="empty-state">
+              <p>Enter an Actor RowID to begin inspecting</p>
+            </div>
+          )
+        )}
+      </main>
+    </div>
   )
 }
 

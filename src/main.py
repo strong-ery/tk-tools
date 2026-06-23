@@ -13,9 +13,34 @@ def main():
 
     ZstdUtils(Path(config.get("romfs_path")) / "Pack" / "ZsDic.pack.zs")
 
+    # Initialize Schema Registry
+    from classes.util.DefinitionUtils import SchemaRegistry
+    SchemaRegistry.instance()
+
+    from classes.game.Actor.ActorManager import ActorManager
+
     try:
-        result = ArchiveUtils.GetArchiveContentsAsList(Path(config.get("romfs_path")) / "Pack" / "Actor" / "Enemy_Bokoblin_Junior.pack.zs")
-        print(result)
+        actor_name = "Enemy_Bokoblin_Junior"
+        print(f"Loading actor: {actor_name}...")
+        actor = ActorManager.LoadActor(actor_name)
+        
+        print(f"\n--- Loaded Actor: {actor.ID} (Category: {actor.category}) ---")
+        print(f"Total Components: {len(actor.components)}\n")
+        
+        for comp in actor.components:
+            print(f"[{comp.name}]")
+            for key, value in list(comp.fields.items())[:3]:
+                # Print first 3 keys for brevity
+                print(f"  {key}: {value}")
+            if len(comp.fields) > 3:
+                print(f"  ... and {len(comp.fields) - 3} more")
+            print()
+            
     except FileNotFoundError as e:
         print(f"Error: {e}")
-main()
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()
