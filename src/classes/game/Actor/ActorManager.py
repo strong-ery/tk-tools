@@ -11,7 +11,30 @@ from .ReferenceEntry import ReferenceEntry
 import oead
 
 class ActorManager:
+    _actor_cache: dict[str, Actor] = {}
     _sarc_cache = {}
+    _rsdb_cache: dict[str, dict[str, dict]] = {} # schema_name -> { row_id -> data }
+    _fallback_archives_cache: Optional[list[bytes]] = None
+
+    @staticmethod
+    def _get_fallback_archives() -> list[bytes]:
+        if ActorManager._fallback_archives_cache is None:
+            ActorManager._fallback_archives_cache = []
+            romfs_path = Path(Config.instance().get("romfs_path"))
+            
+            # List of known fallback archives
+            fallbacks = [
+                "ResidentCommon.pack.zs",
+                "Bootup.Nin_NX_NVN.pack.zs",
+                "AI.Global.Product.120.pack.zs"
+            ]
+            
+            for pack_name in fallbacks:
+                pack_path = romfs_path / "Pack" / pack_name
+                if pack_path.exists():
+                    ActorManager._fallback_archives_cache.append(pack_path.read_bytes())
+        
+        return ActorManager._fallback_archives_cache
 
     @staticmethod
     def _get_sarc_for_actor(row_id: str) -> bytes:
@@ -60,7 +83,27 @@ class ActorManager:
         Recursively resolves $parent for a bgyml file.
         Returns a merged dictionary of the file's data.
         """
-        parsed = IOUtils.ReadBymlFromArchive(archive_bytes, bgyml_path)
+        current_path = bgyml_path
+        
+        # We don't want to load from archive_bytes if it's pointing to another file
+        bgyml_path = current_path
+        if current_path.startswith("?"):
+            bgyml_path = current_path[1:]
+            
+        try:
+            parsed = IOUtils.ReadBymlFromArchive(archive_bytes, bgyml_path)
+        except FileNotFoundError:
+            found = False
+            for rc_bytes in ActorManager._get_fallback_archives():
+                try:
+                    parsed = IOUtils.ReadBymlFromArchive(rc_bytes, bgyml_path)
+                    found = True
+                    break
+                except FileNotFoundError:
+                    continue
+            
+            if not found:
+                raise FileNotFoundError(f"File '{bgyml_path}' not found in archive or any fallback packs.")
         data = ActorManager._byml_to_python(parsed)
 
         if isinstance(data, dict) and "$parent" in data:
@@ -96,11 +139,24 @@ class ActorManager:
         return data
 
     @staticmethod
-    def _load_component_recursively(archive_bytes: bytes, path: str, comp_name: str, components_list: list):
+    def _load_component_recursively(archive_bytes: bytes, path: str, comp_name: str, components_list: list, sarc):
         try:
             comp_data = ActorManager._resolve_parent_chain(archive_bytes, path)
+        except FileNotFoundError as e:
+            found = False
+            for rc_bytes in ActorManager._get_fallback_archives():
+                try:
+                    parsed = IOUtils.ReadBymlFromArchive(rc_bytes, path)
+                    comp_data = ActorManager._byml_to_python(parsed)
+                    found = True
+                    break
+                except FileNotFoundError:
+                    continue
+            
+            if not found:
+                print(f"Skipping component {comp_name} at {path}: {e}")
+                return None
         except Exception as e:
-            # File might not exist in archive if it's a phantom reference or unsupported type
             print(f"Skipping component {comp_name} at {path}: {e}")
             return
 
@@ -108,16 +164,21 @@ class ActorManager:
             for k, v in comp_data.items():
                 if isinstance(v, str) and v.startswith("?"):
                     actual_path = v[1:].replace(".gyml", ".bgyml")
-                    ActorManager._load_component_recursively(archive_bytes, actual_path, k, components_list)
+                    ActorManager._load_component_recursively(archive_bytes, actual_path, k, components_list, sarc)
         else:
+            isNative = (sarc.get_file(path) is not None)
             schema_hint = ComponentSchema(comp_name)
-            comp = Component(comp_name, comp_data, schema=schema_hint)
+            comp = Component(comp_name, comp_data, schema=schema_hint, isNative=isNative)
             components_list.append(comp)
 
     @staticmethod
     def LoadActor(row_id: str) -> Actor:
         row_id = PathUtils.EnsureUniversalRowID(row_id)
         archive_bytes = ActorManager._get_sarc_for_actor(row_id)
+        import oead
+        from classes.util.ZstdUtils import ZstdUtils
+        sarc_data = ZstdUtils.instance().decompress(archive_bytes)
+        sarc = oead.Sarc(sarc_data)
         
         engine_path = PathUtils.GetEngineRowIDFromActorRowID(row_id)
         internal_path = engine_path.replace("Work/", "").replace(".gyml", ".bgyml")
@@ -130,7 +191,63 @@ class ActorManager:
             for comp_name, comp_path in root_data["Components"].items():
                 if isinstance(comp_path, str) and comp_path.startswith("?"):
                     actual_path = comp_path[1:].replace(".gyml", ".bgyml")
-                    ActorManager._load_component_recursively(archive_bytes, actual_path, comp_name, components)
+                    ActorManager._load_component_recursively(archive_bytes, actual_path, comp_name, components, sarc)
                         
-        actor = Actor(row_id, category, components)
+        rsdb_data = {}
+        data_dir = Path(__file__).parent.parent.parent.parent / "data" # tk-tools/src/data
+        romfs_path = Path(Config.instance().get("romfs_path"))
+        
+        if data_dir.exists():
+            for json_file in data_dir.glob("*.json"):
+                table_name = json_file.name.replace("Types.json", "").replace(".json", "")
+                
+                # Check cache
+                if table_name not in ActorManager._rsdb_cache:
+                    rsdb_file = romfs_path / "RSDB" / f"{table_name}.Product.121.rstbl.byml.zs"
+                    if rsdb_file.exists():
+                        try:
+                            from classes.util.ZstdUtils import ZstdUtils
+                            decomp = ZstdUtils.instance().decompress(rsdb_file.read_bytes())
+                            parsed_rsdb = oead.byml.from_binary(decomp)
+                            parsed_python = ActorManager._byml_to_python(parsed_rsdb)
+                            ActorManager._rsdb_cache[table_name] = parsed_python
+                        except Exception as e:
+                            print(f"Failed to load RSDB {table_name}: {e}")
+                            ActorManager._rsdb_cache[table_name] = None
+                    else:
+                        ActorManager._rsdb_cache[table_name] = None
+                        
+                table_data = ActorManager._rsdb_cache[table_name]
+                if isinstance(table_data, list):
+                    row = next((x for x in table_data if isinstance(x, dict) and x.get("__RowId") == row_id), None)
+                    if row:
+                        rsdb_data[table_name] = row
+                elif isinstance(table_data, dict):
+                    if row_id in table_data:
+                        rsdb_data[table_name] = table_data[row_id]
+
+        # Load implicitly present files from SARC pack
+        try:
+            for file in sarc.get_files():
+                path = file.name
+                if not path.endswith(".bgyml"): continue
+                
+                parts = path.split('/')
+                folder = parts[0] if len(parts) > 1 else "Root"
+                file_name = parts[-1].replace(".engine__component__", "").replace(".game__component__", "").replace(".phive__", "").replace(".bgyml", "")
+                
+                if any(c.name == file_name for c in components): continue
+                
+                try:
+                    import oead.byml
+                    file_byml = oead.byml.from_binary(file.data)
+                    file_data = ActorManager._byml_to_python(file_byml)
+                    components.append(Component(file_name, file_data, folder=folder))
+                except Exception as e:
+                    print(f"Skipping implicit file {path}: {e}")
+        except Exception as e:
+            print(f"Error reading explicit files from SARC: {e}")
+
+        actor = Actor(row_id, category, components, rsdb_data)
+        ActorManager._actor_cache[row_id] = actor
         return actor

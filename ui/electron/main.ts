@@ -1,4 +1,5 @@
 import { app, BrowserWindow } from 'electron'
+
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { spawn, ChildProcess, execSync } from 'node:child_process'

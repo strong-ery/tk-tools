@@ -6,7 +6,9 @@ class ComponentSchema:
         self.expected_fields = expected_fields or {}
 
 class Component:
-    def __init__(self, name: str, fields: dict[str, Any], schema: Optional[ComponentSchema] = None):
+    def __init__(self, name: str, fields: dict[str, Any], schema: Optional[ComponentSchema] = None, folder: str = "Component", isNative: bool = True):
         self.name = name
         self.fields = fields
         self.schema = schema
+        self.folder = folder
+        self.isNative = isNative

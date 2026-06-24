@@ -43,13 +43,16 @@ async def get_actor(row_id: str):
         for comp in actor.components:
             components.append({
                 "name": comp.name,
+                "folder": comp.folder,
+                "isNative": comp.isNative,
                 "fields": comp.fields
             })
             
         return {
             "ID": actor.ID,
             "category": actor.category,
-            "components": components
+            "components": components,
+            "rsdb": [{"name": k, "fields": v} for k, v in actor.rsdb.items()]
         }
     except FileNotFoundError as e:
         raise HTTPException(status_code=404, detail=str(e))

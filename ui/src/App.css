@@ -185,10 +185,56 @@ body {
   letter-spacing: 0.5px;
 }
 
+.sidebar-section-title {
+  padding: 16px 16px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  letter-spacing: 1px;
+}
+
+.clickable-title {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+  display: flex;
+  align-items: center;
+}
+
+.clickable-title:hover {
+  color: var(--text-secondary);
+}
+
+.collapse-icon {
+  display: inline-block;
+  width: 12px;
+  margin-right: 4px;
+  font-size: 9px;
+  text-align: center;
+}
+
+.sidebar-controls {
+  margin-top: 12px;
+  font-size: 12px;
+}
+
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.sidebar-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .component-list {
   list-style: none;
-  overflow-y: auto;
-  flex: 1;
   padding: 8px;
 }
 
@@ -197,23 +243,39 @@ body {
   margin-bottom: 2px;
   border-radius: 6px;
   font-size: 14px;
-  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.2s ease;
 }
 
+.item-native {
+  color: var(--text-secondary);
+}
+
+.item-inherited {
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 .component-list li:hover {
   background-color: rgba(255, 255, 255, 0.03);
+}
+
+.component-list li.item-native:hover {
   color: var(--text-primary);
+}
+
+.component-list li.item-inherited:hover {
+  color: var(--text-secondary);
 }
 
 .component-list li.active {
   background-color: rgba(124, 58, 237, 0.15);
   color: #c4b5fd;
   font-weight: 500;
+  font-style: normal;
 }
 
-/* Inspector Properties */
+
 .inspector {
   flex: 1;
   display: flex;

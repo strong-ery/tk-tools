@@ -3,6 +3,8 @@ import './App.css'
 
 interface ComponentData {
   name: string
+  folder?: string
+  isNative?: boolean
   fields: Record<string, any>
 }
 
@@ -10,6 +12,7 @@ interface ActorData {
   ID: string
   category: string
   components: ComponentData[]
+  rsdb: ComponentData[]
 }
 
 function App() {
@@ -18,6 +21,13 @@ function App() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [selectedComponent, setSelectedComponent] = useState<ComponentData | null>(null)
+  
+  const [showInherited, setShowInherited] = useState(true)
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({})
+
+  const toggleFolder = (folder: string) => {
+    setCollapsedFolders(prev => ({ ...prev, [folder]: !prev[folder] }))
+  }
 
   const fetchActor = async () => {
     if (!rowId.trim()) return
@@ -131,18 +141,92 @@ function App() {
               <div className="sidebar-header">
                 <h2>{actor.ID}</h2>
                 <span className="badge">{actor.category}</span>
+                
+                <div className="sidebar-controls">
+                  <label className="toggle-label">
+                    <input 
+                      type="checkbox" 
+                      checked={showInherited} 
+                      onChange={(e) => setShowInherited(e.target.checked)} 
+                    />
+                    Show Inherited Files
+                  </label>
+                </div>
               </div>
-              <ul className="component-list">
-                {actor.components.map((comp) => (
-                  <li
-                    key={comp.name}
-                    className={selectedComponent?.name === comp.name ? 'active' : ''}
-                    onClick={() => setSelectedComponent(comp)}
-                  >
-                    {comp.name}
-                  </li>
-                ))}
-              </ul>
+              
+              <div className="sidebar-scroll-area">
+                {Object.entries(
+                actor.components
+                .filter(comp => showInherited || comp.isNative)
+                .reduce((acc, comp) => {
+                  const folder = comp.folder || 'ROOT'
+                  if (!acc[folder]) acc[folder] = []
+                  acc[folder].push(comp)
+                  return acc
+                }, {} as Record<string, ComponentData[]>)
+              ).sort(([fA], [fB]) => {
+                if (fA === 'Component' && fB !== 'Component') return -1;
+                if (fB === 'Component' && fA !== 'Component') return 1;
+                return fA.localeCompare(fB);
+              }).map(([folder, comps]) => {
+                const isCollapsed = collapsedFolders[folder]
+                return (
+                  <div key={`folder-${folder}`}>
+                    <div 
+                      className="sidebar-section-title clickable-title"
+                      onClick={() => toggleFolder(folder)}
+                    >
+                      <span className="collapse-icon">{isCollapsed ? '▶' : '▼'}</span>
+                      {folder.toUpperCase()}
+                    </div>
+                    {!isCollapsed && (
+                      <ul className="component-list">
+                        {comps.map((comp) => (
+                          <li
+                            key={`${folder}-${comp.name}`}
+                            className={`
+                              ${selectedComponent?.name === comp.name ? 'active' : ''} 
+                              ${comp.isNative ? 'item-native' : 'item-inherited'}
+                            `}
+                            onClick={() => setSelectedComponent(comp)}
+                          >
+                            {comp.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+
+              {actor.rsdb && actor.rsdb.length > 0 && (() => {
+                const isCollapsed = collapsedFolders['RSDB_TABLES']
+                return (
+                  <div>
+                    <div 
+                      className="sidebar-section-title clickable-title"
+                      onClick={() => toggleFolder('RSDB_TABLES')}
+                    >
+                      <span className="collapse-icon">{isCollapsed ? '▶' : '▼'}</span>
+                      RSDB TABLES
+                    </div>
+                    {!isCollapsed && (
+                      <ul className="component-list">
+                        {actor.rsdb.map((table) => (
+                          <li
+                            key={`rsdb-${table.name}`}
+                            className={`${selectedComponent?.name === table.name ? 'active' : ''} item-native`}
+                            onClick={() => setSelectedComponent(table)}
+                          >
+                            {table.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })()}
+              </div>
             </aside>
 
             {/* Inspector Details */}
