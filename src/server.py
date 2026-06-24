@@ -3,6 +3,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from contextlib import asynccontextmanager
 import uvicorn
 
 from appglobals import appglobals
@@ -11,7 +12,20 @@ from classes.util.ZstdUtils import ZstdUtils
 from classes.util.DefinitionUtils import SchemaRegistry
 from classes.game.Actor.ActorManager import ActorManager
 
-app = FastAPI(title="tk-tools Backend")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Initialize the required singletons on startup
+    config = Config(appglobals.APPDATA_PATH / "config.json")
+    if not config.was_just_created:
+        try:
+            ZstdUtils(Path(config.get("romfs_path")) / "Pack" / "ZsDic.pack.zs")
+        except Exception as e:
+            print(f"Failed to load ZstdUtils: {e}")
+    SchemaRegistry.instance()
+    yield
+    # Cleanup on shutdown (if needed)
+
+app = FastAPI(title="tk-tools Backend", lifespan=lifespan)
 
 # Allow all origins for local development (Electron)
 app.add_middleware(
@@ -21,17 +35,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-@app.on_event("startup")
-async def startup_event():
-    # Initialize the required singletons on startup
-    config = Config(appglobals.APPDATA_PATH / "config.json")
-    if not config.was_just_created:
-        try:
-            ZstdUtils(Path(config.get("romfs_path")) / "Pack" / "ZsDic.pack.zs")
-        except Exception as e:
-            print(f"Failed to load ZstdUtils: {e}")
-    SchemaRegistry.instance()
 
 @app.get("/api/actor/{row_id}")
 async def get_actor(row_id: str):
@@ -45,6 +48,7 @@ async def get_actor(row_id: str):
                 "name": comp.name,
                 "folder": comp.folder,
                 "isNative": comp.isNative,
+                "isParentRef": comp.isParentRef,
                 "fields": comp.fields
             })
             

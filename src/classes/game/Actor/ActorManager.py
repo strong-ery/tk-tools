@@ -78,7 +78,7 @@ class ActorManager:
                 return str(obj)
 
     @staticmethod
-    def _resolve_parent_chain(archive_bytes: bytes, bgyml_path: str) -> dict:
+    def _resolve_parent_chain(archive_bytes: bytes, bgyml_path: str, parent_refs_out: list = None) -> dict:
         """
         Recursively resolves $parent for a bgyml file.
         Returns a merged dictionary of the file's data.
@@ -117,31 +117,50 @@ class ActorManager:
             try:
                 parent_archive = ActorManager._get_sarc_for_actor(parent_row_id)
                 parent_internal_path = parent_path.replace("Work/", "").replace(".gyml", ".bgyml")
-                parent_data = ActorManager._resolve_parent_chain(parent_archive, parent_internal_path)
-                
-                # Merge logic: child overrides parent
-                merged = parent_data.copy()
-                
-                # ActorParam special case: merge the nested "Components" dict
-                if "Components" in parent_data and "Components" in data:
-                    merged["Components"] = parent_data["Components"].copy()
-                    merged["Components"].update(data["Components"])
-                    for k, v in data.items():
-                        if k != "Components":
-                            merged[k] = v
-                else:
-                    merged.update(data)
-                return merged
+                parent_data = ActorManager._resolve_parent_chain(parent_archive, parent_internal_path, parent_refs_out)
             except FileNotFoundError:
-                print(f"Warning: Parent actor pack {parent_row_id} not found. Skipping parent resolution.")
-                return data
+                # If actor pack doesn't exist, it might be in ResidentCommon or fallbacks
+                parent_internal_path = parent_path.replace("Work/", "").replace(".gyml", ".bgyml")
+                
+                # We can just call _resolve_parent_chain with archive_bytes=b"" because it falls back inside
+                # But wait, we need to pass a valid byte string if we don't know it. We can just pass the first fallback pack.
+                # Actually, the fallback logic is ALREADY inside _resolve_parent_chain!
+                # If we pass an empty bytes object, it'll raise FileNotFoundError and then try fallbacks.
+                try:
+                    parent_data = ActorManager._resolve_parent_chain(b"", parent_internal_path, parent_refs_out)
+                except FileNotFoundError:
+                    print(f"Warning: Parent reference {parent_path} not found in any packs. Skipping.")
+                    return data
+            
+            if parent_refs_out is not None:
+                parts = parent_internal_path.split("/")
+                folder = parts[0] if len(parts) > 1 else "Root"
+                comp_name = parent_filename.replace(".engine__component__", "").replace(".game__component__", "").replace(".phive__", "").replace(".engine__actor__", "").replace(".gyml", "").replace(".bgyml", "")
+                
+                if not any(c.name == comp_name and c.isParentRef for c in parent_refs_out):
+                    comp = Component(comp_name, parent_data, folder=folder, isNative=False, isParentRef=True)
+                    parent_refs_out.append(comp)
+            
+            # Merge logic: child overrides parent
+            merged = parent_data.copy()
+            
+            # ActorParam special case: merge the nested "Components" dict
+            if "Components" in parent_data and "Components" in data:
+                merged["Components"] = parent_data["Components"].copy()
+                merged["Components"].update(data["Components"])
+                for k, v in data.items():
+                    if k != "Components":
+                        merged[k] = v
+            else:
+                merged.update(data)
+            return merged
                 
         return data
 
     @staticmethod
-    def _load_component_recursively(archive_bytes: bytes, path: str, comp_name: str, components_list: list, sarc):
+    def _load_component_recursively(archive_bytes: bytes, path: str, comp_name: str, components_list: list, sarc, parent_refs_out: list):
         try:
-            comp_data = ActorManager._resolve_parent_chain(archive_bytes, path)
+            comp_data = ActorManager._resolve_parent_chain(archive_bytes, path, parent_refs_out)
         except FileNotFoundError as e:
             found = False
             for rc_bytes in ActorManager._get_fallback_archives():
@@ -164,7 +183,7 @@ class ActorManager:
             for k, v in comp_data.items():
                 if isinstance(v, str) and v.startswith("?"):
                     actual_path = v[1:].replace(".gyml", ".bgyml")
-                    ActorManager._load_component_recursively(archive_bytes, actual_path, k, components_list, sarc)
+                    ActorManager._load_component_recursively(archive_bytes, actual_path, k, components_list, sarc, parent_refs_out)
         else:
             isNative = (sarc.get_file(path) is not None)
             schema_hint = ComponentSchema(comp_name)
@@ -183,7 +202,8 @@ class ActorManager:
         engine_path = PathUtils.GetEngineRowIDFromActorRowID(row_id)
         internal_path = engine_path.replace("Work/", "").replace(".gyml", ".bgyml")
         
-        root_data = ActorManager._resolve_parent_chain(archive_bytes, internal_path)
+        parent_refs = []
+        root_data = ActorManager._resolve_parent_chain(archive_bytes, internal_path, parent_refs)
         category = root_data.get("Category", "Unknown")
         
         components = []
@@ -191,7 +211,7 @@ class ActorManager:
             for comp_name, comp_path in root_data["Components"].items():
                 if isinstance(comp_path, str) and comp_path.startswith("?"):
                     actual_path = comp_path[1:].replace(".gyml", ".bgyml")
-                    ActorManager._load_component_recursively(archive_bytes, actual_path, comp_name, components, sarc)
+                    ActorManager._load_component_recursively(archive_bytes, actual_path, comp_name, components, sarc, parent_refs)
                         
         rsdb_data = {}
         data_dir = Path(__file__).parent.parent.parent.parent / "data" # tk-tools/src/data
@@ -247,6 +267,11 @@ class ActorManager:
                     print(f"Skipping implicit file {path}: {e}")
         except Exception as e:
             print(f"Error reading explicit files from SARC: {e}")
+
+        # Add collected parent refs
+        for pr in parent_refs:
+            if not any(c.name == pr.name for c in components):
+                components.append(pr)
 
         actor = Actor(row_id, category, components, rsdb_data)
         ActorManager._actor_cache[row_id] = actor

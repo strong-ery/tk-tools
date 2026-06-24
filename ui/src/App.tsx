@@ -5,6 +5,7 @@ interface ComponentData {
   name: string
   folder?: string
   isNative?: boolean
+  isParentRef?: boolean
   fields: Record<string, any>
 }
 
@@ -23,6 +24,7 @@ function App() {
   const [selectedComponent, setSelectedComponent] = useState<ComponentData | null>(null)
   
   const [showInherited, setShowInherited] = useState(true)
+  const [showParentRefs, setShowParentRefs] = useState(false)
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({})
 
   const toggleFolder = (folder: string) => {
@@ -149,7 +151,15 @@ function App() {
                       checked={showInherited} 
                       onChange={(e) => setShowInherited(e.target.checked)} 
                     />
-                    Show Inherited Files
+                    Show Inherited
+                  </label>
+                  <label className="toggle-label">
+                    <input 
+                      type="checkbox" 
+                      checked={showParentRefs} 
+                      onChange={(e) => setShowParentRefs(e.target.checked)} 
+                    />
+                    Show Parent Refs
                   </label>
                 </div>
               </div>
@@ -157,7 +167,11 @@ function App() {
               <div className="sidebar-scroll-area">
                 {Object.entries(
                 actor.components
-                .filter(comp => showInherited || comp.isNative)
+                .filter(comp => {
+                  if (comp.isParentRef) return showParentRefs;
+                  if (!comp.isNative) return showInherited;
+                  return true;
+                })
                 .reduce((acc, comp) => {
                   const folder = comp.folder || 'ROOT'
                   if (!acc[folder]) acc[folder] = []
@@ -181,18 +195,24 @@ function App() {
                     </div>
                     {!isCollapsed && (
                       <ul className="component-list">
-                        {comps.map((comp) => (
-                          <li
-                            key={`${folder}-${comp.name}`}
-                            className={`
-                              ${selectedComponent?.name === comp.name ? 'active' : ''} 
-                              ${comp.isNative ? 'item-native' : 'item-inherited'}
-                            `}
-                            onClick={() => setSelectedComponent(comp)}
-                          >
-                            {comp.name}
-                          </li>
-                        ))}
+                        {comps.map((comp) => {
+                          let itemClass = 'item-native'
+                          if (comp.isParentRef) itemClass = 'item-parent-ref'
+                          else if (!comp.isNative) itemClass = 'item-inherited'
+                          
+                          return (
+                            <li
+                              key={`${folder}-${comp.name}`}
+                              className={`
+                                ${selectedComponent?.name === comp.name ? 'active' : ''} 
+                                ${itemClass}
+                              `}
+                              onClick={() => setSelectedComponent(comp)}
+                            >
+                              {comp.name}
+                            </li>
+                          )
+                        })}
                       </ul>
                     )}
                   </div>

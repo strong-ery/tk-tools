@@ -13,8 +13,10 @@ function startPythonServer() {
 	console.log("[Electron] Starting Python server at", rootDir);
 	try {
 		console.log("[Electron] Clearing port 8123...");
-		if (process.platform === "win32") execSync(`powershell -Command "(Get-NetTCPConnection -LocalPort 8123 -ErrorAction SilentlyContinue).OwningProcess | Stop-Process -Force"`);
-		else execSync(`lsof -t -i:8123 | xargs kill -9`);
+		try {
+			if (process.platform === "win32") execSync(`powershell -Command "$proc = (Get-NetTCPConnection -LocalPort 8123 -ErrorAction SilentlyContinue).OwningProcess; if ($proc) { Stop-Process -Id $proc -Force }"`);
+			else execSync(`lsof -t -i:8123 | xargs kill -9`);
+		} catch (e) {}
 	} catch (e) {}
 	pythonServer = spawn("python", ["src/server.py"], { cwd: rootDir });
 	pythonServer.stdout?.on("data", (data) => {

@@ -215,7 +215,10 @@ body {
 
 .sidebar-controls {
   margin-top: 12px;
-  font-size: 12px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .toggle-label {
@@ -253,6 +256,11 @@ body {
 
 .item-inherited {
   color: var(--text-muted);
+  font-style: italic;
+}
+
+.item-parent-ref {
+  color: #fbbf24;
   font-style: italic;
 }
 

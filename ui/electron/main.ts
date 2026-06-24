@@ -18,10 +18,14 @@ function startPythonServer() {
   try {
     // Force kill any zombie process holding our port before starting
     console.log('[Electron] Clearing port 8123...')
-    if (process.platform === 'win32') {
-      execSync(`powershell -Command "(Get-NetTCPConnection -LocalPort 8123 -ErrorAction SilentlyContinue).OwningProcess | Stop-Process -Force"`)
-    } else {
-      execSync(`lsof -t -i:8123 | xargs kill -9`)
+    try {
+      if (process.platform === 'win32') {
+        execSync(`powershell -Command "$proc = (Get-NetTCPConnection -LocalPort 8123 -ErrorAction SilentlyContinue).OwningProcess; if ($proc) { Stop-Process -Id $proc -Force }"`)
+      } else {
+        execSync(`lsof -t -i:8123 | xargs kill -9`)
+      }
+    } catch (e) {
+      // Ignore errors if the port was already free
     }
   } catch (e) {
     // Ignore errors if the port was already free
