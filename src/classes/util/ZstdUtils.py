@@ -37,6 +37,13 @@ class ZstdUtils:
             ("none", zstd.ZstdDecompressor()),
         ]
 
+        self._compressors = {
+            "pack": zstd.ZstdCompressor(dict_data=pack_dict, level=10),
+            "bcett": zstd.ZstdCompressor(dict_data=bcett_dict, level=10),
+            "zs": zstd.ZstdCompressor(dict_data=zs_dict, level=10),
+            "none": zstd.ZstdCompressor(level=10),
+        }
+
         print("zs_dict id:", zs_dict.dict_id())
         print("pack_dict id:", pack_dict.dict_id())
         print("bcett_dict id:", bcett_dict.dict_id())
@@ -51,7 +58,15 @@ class ZstdUtils:
             )
         return cls._instance
 
+    def compress(self, data: bytes, dict_name: str = "pack") -> bytes:
+        if dict_name not in self._compressors:
+            raise ValueError(f"Unknown compression dictionary: {dict_name}")
+        return self._compressors[dict_name].compress(data)
+
     def decompress(self, data: bytes, filename: str = "") -> bytes:
+        if not data:
+            return b""
+            
         try:
             frame_dict_id = zstd.get_frame_parameters(data).dict_id
         except zstd.ZstdError as e:

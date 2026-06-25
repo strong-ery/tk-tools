@@ -1,0 +1,50 @@
+{
+    "ActorInfo": {
+        "ActorName": "Enemy_Bokoblin_FuckYou",
+        "AnimationResources": [
+            {
+                "ModelProjectName": "Enemy_Bokoblin_Animation"
+            }
+        ],
+        "ApplyScaleType": "ScaleMax",
+        "CalcRadius": "20.000000",
+        "Category": "Enemy",
+        "ClassName": "GameActor",
+        "CreateRadiusOffset": "5.000000",
+        "DeleteRadiusOffset": "10.000000",
+        "DisplayRadius": "150.000000",
+        "ELinkUserName": "Bokoblin_Red",
+        "FmdbName": "Bokoblin_Red",
+        "InstanceHeapSize": "2654736",
+        "IsCalcNodePushBack": false,
+        "IsEventHideCharacter": true,
+        "LoadRadius": "250.000000",
+        "ModelAabbMax": {
+            "X": "0.988756",
+            "Y": "2.913069",
+            "Z": "1.092423"
+        },
+        "ModelAabbMin": {
+            "X": "-1.010892",
+            "Y": "-0.012501",
+            "Z": "-0.364295"
+        },
+        "ModelProjectName": "Enemy_Bokoblin",
+        "ModelVariationFmabName": "Bokoblin_Color_ftp",
+        "PreActorRenderInfoHeapSize": "39608",
+        "SLinkUserName": "Bokoblin_Red",
+        "UnloadRadiusOffset": "10.000000",
+        "__RowId": "Enemy_Bokoblin_FuckYou"
+    },
+    "GameActorInfo": {
+        "DefaultAffiliation": "Enemy",
+        "HasMiasmaConversion": true,
+        "IsMiasmaSwarmCulling": true,
+        "IsRespawn": true,
+        "IsShortCreateRadiusInHeavy": true,
+        "MainRigidBodyLayer": "Character",
+        "MaxLife": "25",
+        "YLimitHeight": "500.000000",
+        "__RowId": "Enemy_Bokoblin_FuckYou"
+    }
+}

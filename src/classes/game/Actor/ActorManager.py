@@ -44,7 +44,19 @@ class ActorManager:
         romfs_path = Path(Config.instance().get("romfs_path"))
         pack_path = romfs_path / "Pack" / "Actor" / f"{row_id}.pack.zs"
         if not pack_path.exists():
-            raise FileNotFoundError(f"Actor pack not found at {pack_path}")
+            # Check projects directory for cloned actor packs
+            projects_dir = Path("projects")
+            found = False
+            if projects_dir.exists():
+                for p in projects_dir.iterdir():
+                    if p.is_dir():
+                        proj_pack = p / "Pack" / "Actor" / f"{row_id}.pack.zs"
+                        if proj_pack.exists():
+                            pack_path = proj_pack
+                            found = True
+                            break
+            if not found:
+                raise FileNotFoundError(f"Actor pack not found at {pack_path} or in any project")
         
         data = pack_path.read_bytes()
         ActorManager._sarc_cache[row_id] = data
@@ -138,7 +150,9 @@ class ActorManager:
                 comp_name = parent_filename.replace(".engine__component__", "").replace(".game__component__", "").replace(".phive__", "").replace(".engine__actor__", "").replace(".gyml", "").replace(".bgyml", "")
                 
                 if not any(c.name == comp_name and c.isParentRef for c in parent_refs_out):
-                    comp = Component(comp_name, parent_data, folder=folder, isNative=False, isParentRef=True)
+                    from classes.util.ComponentInfoRegistry import ComponentInfoRegistry
+                    info = ComponentInfoRegistry.instance().get_info(folder, comp_name)
+                    comp = Component(comp_name, parent_data, folder=folder, isNative=False, isParentRef=True, info=info)
                     parent_refs_out.append(comp)
             
             # Merge logic: child overrides parent
@@ -185,9 +199,15 @@ class ActorManager:
                     actual_path = v[1:].replace(".gyml", ".bgyml")
                     ActorManager._load_component_recursively(archive_bytes, actual_path, k, components_list, sarc, parent_refs_out)
         else:
+            parts = path.split("/")
+            folder = parts[0] if len(parts) > 1 else "Root"
             isNative = (sarc.get_file(path) is not None)
             schema_hint = ComponentSchema(comp_name)
-            comp = Component(comp_name, comp_data, schema=schema_hint, isNative=isNative)
+            
+            from classes.util.ComponentInfoRegistry import ComponentInfoRegistry
+            info = ComponentInfoRegistry.instance().get_info(folder, comp_name)
+            
+            comp = Component(comp_name, comp_data, schema=schema_hint, folder=folder, isNative=isNative, info=info)
             components_list.append(comp)
 
     @staticmethod
@@ -224,27 +244,53 @@ class ActorManager:
                 # Check cache
                 if table_name not in ActorManager._rsdb_cache:
                     rsdb_file = romfs_path / "RSDB" / f"{table_name}.Product.121.rstbl.byml.zs"
+                    table_data = None
                     if rsdb_file.exists():
                         try:
                             from classes.util.ZstdUtils import ZstdUtils
                             decomp = ZstdUtils.instance().decompress(rsdb_file.read_bytes())
                             parsed_rsdb = oead.byml.from_binary(decomp)
-                            parsed_python = ActorManager._byml_to_python(parsed_rsdb)
-                            ActorManager._rsdb_cache[table_name] = parsed_python
+                            table_data = ActorManager._byml_to_python(parsed_rsdb)
                         except Exception as e:
                             print(f"Failed to load RSDB {table_name}: {e}")
-                            ActorManager._rsdb_cache[table_name] = None
-                    else:
-                        ActorManager._rsdb_cache[table_name] = None
+                    
+                    # Merge any project-specific RSDB patches into the global cache
+                    projects_dir = Path("projects")
+                    if projects_dir.exists():
+                        for p in projects_dir.iterdir():
+                            if p.is_dir():
+                                rsdb_dir = p / "RSDB"
+                                if rsdb_dir.exists():
+                                    for patch_file in rsdb_dir.glob("*_Patch.json"):
+                                        try:
+                                            with open(patch_file, "r", encoding="utf-8") as f:
+                                                patch_content = json.load(f)
+                                                if table_name in patch_content:
+                                                    custom_row = patch_content[table_name]
+                                                    custom_row_id = custom_row.get("__RowId")
+                                                    if custom_row_id:
+                                                        if table_data is None:
+                                                            table_data = {} if isinstance(custom_row, dict) else []
+                                                        
+                                                        if isinstance(table_data, list):
+                                                            table_data = [x for x in table_data if not (isinstance(x, dict) and x.get("__RowId") == custom_row_id)]
+                                                            table_data.append(custom_row)
+                                                        elif isinstance(table_data, dict):
+                                                            table_data[custom_row_id] = custom_row
+                                        except Exception as e:
+                                            print(f"Failed to merge patch {patch_file} into {table_name} cache: {e}")
+                    
+                    ActorManager._rsdb_cache[table_name] = table_data
                         
                 table_data = ActorManager._rsdb_cache[table_name]
-                if isinstance(table_data, list):
-                    row = next((x for x in table_data if isinstance(x, dict) and x.get("__RowId") == row_id), None)
-                    if row:
-                        rsdb_data[table_name] = row
-                elif isinstance(table_data, dict):
-                    if row_id in table_data:
-                        rsdb_data[table_name] = table_data[row_id]
+                if table_data is not None:
+                    if isinstance(table_data, list):
+                        row = next((x for x in table_data if isinstance(x, dict) and x.get("__RowId") == row_id), None)
+                        if row:
+                            rsdb_data[table_name] = row
+                    elif isinstance(table_data, dict):
+                        if row_id in table_data:
+                            rsdb_data[table_name] = table_data[row_id]
 
         # Load implicitly present files from SARC pack
         try:

@@ -1,0 +1,4 @@
+{
+    "MatchType": "Partial",
+    "Description": "A simple reference to the actors animation resource in the `romfs/Model` folder."
+}
